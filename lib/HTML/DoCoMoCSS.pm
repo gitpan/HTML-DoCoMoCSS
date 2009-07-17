@@ -7,8 +7,9 @@ use File::Spec;
 use Carp;
 use HTML::Selector::XPath 'selector_to_xpath';
 use XML::LibXML;
+use XML::LibXML::XPathContext;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub new {
     my $class = shift;
@@ -30,8 +31,27 @@ sub apply {
 
     my $xml = XML::LibXML->new();
     my $doc = $xml->parse_string($content);
+    my $xc = XML::LibXML::XPathContext->new($doc);
 
-    my @linknodes = $doc->findnodes('//link[@rel="stylesheet"]');
+    my $root = $doc->documentElement();
+    my $namespace = $root->getAttribute('xmlns');
+
+    my $namespace_prefix = '';
+    if ( $namespace ) {
+        # xhtml
+        $xc->registerNs('x', $namespace);
+        $namespace_prefix = 'x:';
+    } 
+
+
+    # read css from <style>
+    for my $stylenode ($doc->getElementsByTagName('style')) {
+        my $css = CSS::Tiny->read_string($stylenode->textContent);
+        $self->_apply_css($css, $doc, $xc, $namespace_prefix);
+    }
+
+    # read css from <link rel="stylesheet" href="/css/foo.css" />
+    my @linknodes = $xc->findnodes('//' . $namespace_prefix . 'link[@rel="stylesheet"]');
     for my $linknode (@linknodes) {
         my $href = $linknode->getAttribute('href') or next;
 
@@ -53,30 +73,8 @@ sub apply {
             $cssfile =~ s/\?.+//g; # remove query string. e.g. /css/mobile.css?d=20070807
             $css = CSS::Tiny->read($cssfile) or croak "Can't open '$cssfile' by @{[ __PACKAGE__ ]}";
         }
-
-        # iCSS can use a:link, a:focus, a:visited at <style>
-        my @pseudo_selectors = grep /a:(link|focus|visited)/, keys %$css;
-        if (@pseudo_selectors) {
-            my $style_style = bless { map { $_ => $css->{$_} } @pseudo_selectors }, 'CSS::Tiny';
-
-            my $style = $doc->createElement('style');
-            $style->appendText($style_style->write_string);
-            $style->setAttribute('type' => 'text/css');
-
-            my ($head,) = $doc->getElementsByTagName('head') or croak "Can't find head";
-            $head->appendChild($style);
-
-            delete $css->{$_} for @pseudo_selectors;
-        }
-
-        # apply inline css
-        for my $style ( $css->styles ) {
-            for my $element ( $doc->findnodes( selector_to_xpath($style->selector) ) ) {
-                my $style_attr = $element->getAttribute('style');
-                $style_attr = (!$style_attr) ? $style->stringify : (join ";", ($style_attr, $style->stringify));
-                $element->setAttribute('style', $style_attr);
-            }
-        }
+        
+        $self->_apply_css($css, $doc, $xc, $namespace_prefix);
     }
 
     $content = $doc->toString();
@@ -86,6 +84,37 @@ sub apply {
 
     return $content;
 }
+
+sub _apply_css {
+    my ($self, $css, $doc, $xc, $namespace_prefix) = @_;
+
+    # iCSS can use a:link, a:focus, a:visited at <style>
+    my @pseudo_selectors = grep /a:(link|focus|visited)/, keys %$css;
+    if (@pseudo_selectors) {
+        my $style_style = bless { map { $_ => $css->{$_} } @pseudo_selectors }, 'CSS::Tiny';
+
+        my $style = $doc->createElement('style');
+        $style->appendText($style_style->write_string);
+        $style->setAttribute('type' => 'text/css');
+
+        my ($head,) = $doc->getElementsByTagName('head') or croak "Can't find head";
+        $head->appendChild($style);
+
+        delete $css->{$_} for @pseudo_selectors;
+    }
+
+    # apply inline css
+    for my $style ( $css->styles ) {
+        my $xpath = selector_to_xpath($style->selector);
+        $xpath =~ s|^//|//$namespace_prefix|;
+        for my $element ( $xc->findnodes( $xpath ) ) {
+            my $style_attr = $element->getAttribute('style');
+            $style_attr = (!$style_attr) ? $style->stringify : (join ";", ($style_attr, $style->stringify));
+            $element->setAttribute('style', $style_attr);
+        }
+    }
+}
+
 
 1;
 __END__

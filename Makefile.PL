@@ -6,7 +6,7 @@ requires 'CSS::Tiny::Style';
 requires 'CSS::Tiny';
 requires 'File::Spec';
 requires 'Carp';
-requires 'XML::LibXML';
+requires 'XML::LibXML' => '1.61';
 requires 'HTML::Selector::XPath';
 
 build_requires 'Test::More';

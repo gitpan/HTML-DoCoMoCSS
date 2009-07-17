@@ -220,3 +220,82 @@ a:link {
 --- expected
 <html><head><link href="/css/foo.css" rel="stylesheet" /></head><body><div>&#66666;</div></body></html>
 
+=== read from style tag
+--- input
+<html>
+<head>
+<link rel="stylesheet" href="/css/foo.css" />
+<style>
+.yes {
+    color: white;
+}
+</style>
+</head>
+<body>
+<div class="yes">bar</div>
+</body>
+</html>
+--- expected
+<?xml version="1.0"?>
+<html>
+<head>
+<link rel="stylesheet" href="/css/foo.css"/>
+<style>
+.yes {
+    color: white;
+}
+</style>
+</head>
+<body>
+<div class="yes" style="color:white">bar</div>
+</body>
+</html>
+
+=== XHTML name space
+--- input
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//i-mode group (ja)//DTD XHTML i-XHTML(Locale/Ver.=ja/1.0) 1.0//EN" "i-xhtml_4ja_10.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<link rel="stylesheet" href="/css/foo.css" />
+</head>
+<body>
+<div class="title">bar</div>
+</body>
+</html>
+--- expected
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//i-mode group (ja)//DTD XHTML i-XHTML(Locale/Ver.=ja/1.0) 1.0//EN" "i-xhtml_4ja_10.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<link rel="stylesheet" href="/css/foo.css"/>
+</head>
+<body>
+<div class="title" style="color:red">bar</div>
+</body>
+</html>
+
+=== XHTML name space DTD default
+--- input
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<link rel="stylesheet" href="/css/foo.css" />
+</head>
+<body>
+<div class="title">bar</div>
+</body>
+</html>
+--- expected
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="stylesheet" href="/css/foo.css" />
+</head>
+<body>
+<div class="title" style="color:red">bar</div>
+</body>
+</html>
+
